@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ESP32 Water Pump Controller - Enhanced UI</title>
+<style>
+/* === Enhanced UI theme === */
+:root{
+  --background:hsl(220,15%,97%);
+  --foreground:hsl(220,15%,15%);
+  --card:hsl(0,0%,100%);
+  --primary:hsl(217,91%,60%);
+  --accent:hsl(200,100%,70%);
+  --success:hsl(145,63%,49%);
+  --warning:hsl(35,91%,65%);
+  --destructive:hsl(0,84%,60%);
+  --muted:hsl(217,20%,95%);
+  --border:hsl(217,20%,88%);
+  --radius:0.75rem;
+  --radius-lg:1rem;
+  --radius-xl:1.5rem;
+  --transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background:linear-gradient(135deg,var(--background) 0%, var(--muted) 100%);
+  color:var(--foreground);
+  min-height:100vh;
+  line-height:1.5;
+  padding-bottom:3rem;
+}
+.hero-section{
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  color:#fff;
+  padding:3rem 1rem 2rem;
+  text-align:center;
+}
+.hero-title{font-size:2.25rem;font-weight:800;margin-bottom:.25rem}
+.hero-subtitle{opacity:.95}
+.container{
+  max-width:1200px;margin:-2.5rem auto 2rem;padding:0 1rem;
+}
+/* Card */
+.card{background:var(--card);border-radius:var(--radius-lg);box-shadow:0 4px 16px rgba(0,0,0,0.08);border:1px solid var(--border);overflow:hidden;margin-bottom:1.25rem}
+.card-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)}
+.card-content{padding:1.25rem 1.5rem}
+.card-title{font-size:1.15rem;font-weight:700;display:flex;gap:.5rem;align-items:center}
+
+/* Status grid */
+.status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
+.status-item{display:flex;gap:.75rem;align-items:center;padding:.75rem;border-radius:var(--radius);background:linear-gradient(0deg,rgba(255,255,255,0.6),rgba(255,255,255,0.6));border:1px solid rgba(0,0,0,0.03)}
+.status-dot{width:12px;height:12px;border-radius:50%;background:var(--destructive);box-shadow:0 0 8px rgba(0,0,0,0.06)}
+.status-dot.connected{background:var(--success)}
+
+/* Enhanced water level display */
+.water-level-container{display:flex;flex-direction:column;align-items:center;gap:.5rem}
+.water-level-display{display:flex;align-items:center;gap:.75rem}
+.water-level-bars{display:flex;gap:4px;align-items:end}
+.water-bar{width:8px;height:20px;background:var(--muted);border-radius:2px;transition:var(--transition)}
+.water-bar.active{background:linear-gradient(135deg,var(--primary),var(--accent));box-shadow:0 0 8px rgba(0,0,0,0.06)}
+.water-level-text{font-weight:800;color:var(--primary);font-size:1.1rem}
+.water-level-label{font-size:0.85rem;color:var(--muted-foreground);font-weight:600}
+
+/* Tabs */
+.tabs{margin-top:.4rem}
+.tab-list{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;background:var(--muted);padding:.4rem;border-radius:var(--radius)}
+.tab-trigger{background:transparent;border:none;padding:.6rem 0;border-radius:var(--radius);cursor:pointer;font-weight:600;transition:var(--transition)}
+.tab-trigger.active{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;box-shadow:0 6px 20px rgba(31,119,255,0.12)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.mode-description{margin-top:.75rem;padding:.6rem;border-radius:var(--radius);background:rgba(0,0,0,0.03);display:flex;gap:.5rem;align-items:center}
+
+/* Manual controls (modern) */
+.manual-controls{display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;justify-content:center}
+.toggle-switch{position:relative;width:80px;height:40px}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.slider{position:absolute;inset:0;background:var(--muted);border-radius:40px;cursor:pointer;box-shadow:inset 0 2px 4px rgba(0,0,0,0.06);transition:var(--transition)}
+.slider:before{content:"";position:absolute;height:32px;width:32px;left:4px;bottom:4px;background:#fff;border-radius:50%;transition:var(--transition);box-shadow:0 2px 6px rgba(0,0,0,0.12)}
+input:checked + .slider{background:linear-gradient(135deg,var(--success),#8ee2a3)} 
+input:checked + .slider:before{transform:translateX(40px)}
+.pump-status{font-weight:800;padding:.75rem 1rem;border-radius:var(--radius-lg);background:var(--muted)}
+.pump-status.on{background:linear-gradient(135deg,var(--success),#bff0c2);color:#083}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.6rem 1rem;border-radius:var(--radius);border:none;cursor:pointer;font-weight:700;transition:var(--transition)}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff}
+.btn-success{background:linear-gradient(135deg,var(--success),#bff0c2);color:#043}
+.btn-outline{background:transparent;border:2px solid var(--border)}
+.btn-lg{padding:1rem 1.25rem;font-size:1rem;border-radius:var(--radius-lg)}
+
+/* Enhanced period toggle for both selection */
+.period-toggle-container{display:flex;align-items:center;gap:1rem;margin-bottom:1rem;padding:1rem;background:var(--muted);border-radius:var(--radius)}
+.toggle-buttons{display:flex;gap:.5rem}
+.period-btn{padding:.5rem 1rem;border:2px solid var(--border);border-radius:var(--radius);background:transparent;cursor:pointer;font-weight:600;transition:var(--transition)}
+.period-btn.active{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border-color:var(--primary)}
+.period-btn:hover{border-color:var(--primary)}
+
+/* task section */
+.task-section{padding:1rem;border-radius:var(--radius);background:linear-gradient(0deg,rgba(0,0,0,0.02),rgba(0,0,0,0.02))}
+.task-buttons{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem}
+.btn-outline.active{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff}
+
+/* form */
+.input-group{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.form-input{padding:.6rem;border:1px solid var(--border);border-radius:var(--radius)}
+
+/* Enhanced day card styles */
+.day-card{
+  padding:1.25rem;
+  margin-bottom:1rem;
+  border:2px solid var(--border);
+  border-radius:var(--radius-lg);
+  background:linear-gradient(135deg,rgba(255,255,255,0.8),rgba(255,255,255,0.6));
+  transition:var(--transition);
+}
+.day-card:hover{
+  border-color:var(--primary);
+  box-shadow:0 8px 25px rgba(0,0,0,0.08);
+}
+.day-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:1rem;
+  padding-bottom:0.75rem;
+  border-bottom:1px solid var(--border);
+}
+.day-name{
+  font-size:1.2rem;
+  font-weight:800;
+  color:var(--primary);
+}
+.periods-container{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1rem;
+}
+.periods-container.single{
+  grid-template-columns:1fr;
+}
+
+/* small helpers */
+.separator{height:1px;background:var(--border);margin:1rem 0}
+.toast{position:fixed;top:1rem;right:1rem;background:var(--success);color:#fff;padding:.9rem 1.25rem;border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,0.12);z-index:9999;opacity:0;transform:translateY(-16px);transition:var(--transition)}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.error{background:linear-gradient(135deg,var(--destructive),#ff8f8f)}
+
+/* responsive */
+@media (max-width:800px){
+  .tab-list{grid-template-columns:repeat(2,1fr)} 
+  .input-group{grid-template-columns:1fr}
+  .periods-container{grid-template-columns:1fr}
+}
+
+/* Range track appearance */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.14) 0%, rgba(59,130,246,0.06) 100%);
+  outline: none;
+  transition: var(--transition);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.14) 0%, rgba(59,130,246,0.06) 100%);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,var(--primary),var(--accent));
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(31,119,255,0.12), 0 2px 6px rgba(0,0,0,0.12);
+  border: 3px solid #fff;
+  transition: var(--transition);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.14) 0%, rgba(59,130,246,0.06) 100%);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,var(--primary),var(--accent));
+  border: 3px solid #fff;
+  box-shadow: 0 6px 18px rgba(31,119,255,0.12), 0 2px 6px rgba(0,0,0,0.12);
+  transition: var(--transition);
+}
+
+input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.06); }
+input[type="range"]:active::-webkit-slider-thumb { transform: scale(0.98); }
+
+.slider-value, .slider-value-inline {
+  background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(255,255,255,0.9));
+  border: 1px solid var(--border);
+  padding: .3rem .55rem;
+  border-radius: .5rem;
+  font-weight:700;
+  min-width:64px;
+  text-align:center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+input[type="number"], input[type="time"] {
+  width: 100%;
+  padding: .6rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: #fff;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+  font-size: .95rem;
+  transition: var(--transition);
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"]:focus, input[type="time"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 6px rgba(59,130,246,0.06);
+  outline: none;
+}
+
+.form-label { font-weight:600; display:block; margin-bottom:.35rem; color:var(--foreground); }
+.form-group { margin-bottom:.75rem; }
+.input-disabled { opacity:.6; pointer-events:none; }
+
+@media (max-width:600px) {
+  .slider-value, .slider-value-inline { min-width:56px; font-size:.9rem; }
+  .period-toggle-container{flex-direction:column;align-items:stretch;gap:.75rem}
+}
+</style>
+</head>
+<body>
+  <div class="hero-section">
+    <div class="hero-title">Water Pump Controller</div>
+  </div>
+
+  <div class="container">
+    <!-- Status Card -->
+    <div class="card">
+      <div class="card-content">
+        <div class="status-grid">
+          <div class="status-item">
+            <div class="status-dot" id="connectionStatus"></div>
+            <div><strong id="connectionText">Connecting...</strong></div>
+          </div>
+          <div class="status-item">
+            <div style="display:flex;flex-direction:column">
+              <div>📅 <span id="currentDay">--</span></div>
+              <div>🕒 <span id="currentTime">--:--:--</span></div>
+            </div>
+          </div>
+          <div class="status-item">
+            <div>Pump: <strong id="globalPumpStatus">OFF</strong></div>
+          </div>
+          <div class="status-item">
+            <div class="water-level-container">
+              <div class="water-level-label">Water Level</div>
+              <div class="water-level-display">
+                <div class="water-level-bars" id="waterBars">
+                  <div class="water-bar" id="bar1"></div>
+                  <div class="water-bar" id="bar2"></div>
+                  <div class="water-bar" id="bar3"></div>
+                  <div class="water-bar" id="bar4"></div>
+                  <div class="water-bar" id="bar5"></div>
+                </div>
+                <div class="water-level-text" id="waterLevelText">Level 0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Control Mode Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Control Mode</div>
+      </div>
+      <div class="card-content">
+        <div class="tabs">
+          <div class="tab-list">
+            <button class="tab-trigger active" data-tab="manual" onclick="setControlMode('manual')">Manual</button>
+            <button class="tab-trigger" data-tab="auto" onclick="setControlMode('auto')">Schedule</button>
+            <button class="tab-trigger" data-tab="loop" onclick="setControlMode('loop')">Loop</button>
+            <button class="tab-trigger" data-tab="by_level_loop" onclick="setControlMode('by_level_loop')">By Level Loop</button>
+          </div>
+          <div id="modeDescription" class="mode-description">
+            <div><strong>Manual Mode:</strong> Full manual control - automated scheduling is disabled</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Tab -->
+    <div id="manualContent" class="tab-content active">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Manual Control</div></div>
+        <div class="card-content">
+          <div class="manual-controls">
+            <label class="toggle-switch">
+              <input type="checkbox" id="manualToggle" onchange="togglePump()">
+              <span class="slider"></span>
+            </label>
+            <div id="pumpStatus" class="pump-status">OFF</div>
+          </div>
+
+          <div class="separator"></div>
+
+          <div class="task-section">
+            <h4 style="margin-bottom:.5rem">Task Configuration</h4>
+            <div class="task-buttons">
+              <button class="btn btn-outline active" data-task="none" onclick="setManualTask('none')">Unlimited</button>
+              <button class="btn btn-outline" data-task="timer" onclick="setManualTask('timer')">Timer</button>
+              <button class="btn btn-outline" data-task="level" onclick="setManualTask('level')">Water Level</button>
+            </div>
+
+            <div id="timerConfig" class="task-config" style="display:none;margin-top:1rem">
+              <div class="input-group">
+                <div class="form-group">
+                  <label class="form-label">Hours</label>
+                  <input type="number" id="manualTimerHours" class="form-input" min="0" max="23" value="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Minutes</label>
+                  <input type="number" id="manualTimerMinutes" class="form-input" min="0" max="59" value="10">
+                </div>
+              </div>
+            </div>
+
+            <div id="levelConfig" class="task-config" style="display:none;margin-top:1rem">
+              <div class="form-group">
+                <label class="form-label">Target Water Level</label>
+                <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+                  <input type="range" id="manualTargetLevel" min="1" max="5" value="3" class="slider-input" onchange="updateManualLevelValue(this.value)">
+                  <div class="slider-value" id="manualLevelValue">Level 3</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:1rem">
+              <h4 style="margin-bottom:.5rem">After Task Complete</h4>
+              <div class="task-buttons" style="grid-template-columns:repeat(4,1fr);display:grid;gap:.5rem">
+                <button class="btn btn-outline active" data-after="stay" onclick="setAfterTask('stay')">Stay Manual</button>
+                <button class="btn btn-outline" data-after="switch" onclick="setAfterTask('switch')">Switch to Auto</button>
+                <button class="btn btn-outline" data-after="switch_loop" onclick="setAfterTask('switch_loop')">Switch to Loop</button>
+                <button class="btn btn-outline" data-after="switch_level_loop" onclick="setAfterTask('switch_level_loop')">Switch to Level Loop</button>
+              </div>
+            </div>
+
+            <button class="btn btn-success btn-lg" style="width:100%;margin-top:1rem" onclick="saveManualSettings()">Save Manual Settings</button>
+
+            <div id="taskStatus" style="text-align:center;margin-top:.75rem;font-weight:700;color:var(--primary)"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto / Schedule Tab -->
+    <div id="autoContent" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="card-title">Weekly Schedule</div>
+            <div style="display:flex;gap:.5rem">
+              <button class="btn btn-outline" onclick="syncTimeAndRTC()"><span id="syncIcon">🔁</span> Sync Time</button>
+              <button class="btn btn-success" onclick="saveAllSettings()">Save Schedule</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-content">
+          <div id="autoControls" style="min-height:160px">
+            <!-- Day cards inserted by JS -->
+          </div>
+
+          <div id="timerStatus" style="margin-top:1rem;padding:1rem;border-radius:var(--radius);background:rgba(255,243,205,0.6);">
+            Timer is currently inactive
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loop Tab (frequency-based) -->
+    <div id="loopContent" class="tab-content">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Loop Control (Frequency)</div></div>
+        <div class="card-content">
+          <div style="padding:1rem">
+            <div style="display:flex;gap:1rem;flex-wrap:wrap">
+              <div style="flex:1;min-width:200px">
+                <label class="form-label">Hours</label>
+                <input type="number" id="loopFreqHours" min="0" max="23" value="0" style="width:100%;padding:.5rem;border-radius:.5rem;border:1px solid var(--border)">
+              </div>
+              <div style="flex:1;min-width:200px">
+                <label class="form-label">Minutes</label>
+                <input type="number" id="loopFreqMinutes" min="0" max="59" value="30" style="width:100%;padding:.5rem;border-radius:.5rem;border:1px solid var(--border)">
+              </div>
+            </div>
+
+            <div style="margin-top:1rem">
+              <label class="form-label">Target Level</label>
+              <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+                <input type="range" id="loopTargetLevel" min="1" max="5" value="3" onchange="updateLoopLevelValue(this.value)">
+                <div class="slider-value" id="loopLevelValue">Level 3</div>
+              </div>
+            </div>
+
+            <div id="loopStatus" style="margin-top:1rem">
+              Last Task End Time: <span id="lastEndTime">--:--</span><br>
+              Next Check Time: <span id="nextCheckTime">--:--</span>
+            </div>
+
+            <button class="btn btn-success" style="margin-top:1rem" onclick="saveLoopSettings()">Save Loop Settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- By Level Loop Tab (new) -->
+    <div id="by_level_loopContent" class="tab-content">
+      <div class="card">
+        <div class="card-header"><div class="card-title">By Level Loop (Bottom & Target)</div></div>
+        <div class="card-content">
+          <div class="task-config active" style="padding:1rem">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+              <div>
+                <label class="form-label">Bottom Water Level</label>
+                <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+                  <input type="range" id="levelLoopBottom" min="1" max="5" value="1" onchange="updateBottomLevelValue(this.value)">
+                  <div class="slider-value" id="bottomLevelValue">Level 1</div>
+                </div>
+              </div>
+              <div>
+                <label class="form-label">Target Water Level</label>
+                <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+                  <input type="range" id="levelLoopTarget" min="1" max="5" value="5" onchange="updateTargetLevelValue(this.value)">
+                  <div class="slider-value" id="targetLevelValue">Level 5</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:1rem">
+              <button class="btn btn-success" onclick="saveLevelLoopSettings()" style="width:100%">Save By Level Loop Settings</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+/* === Combined JS: WebSocket handling + enhanced functionality === */
+
+/* Global state */
+let websocket;
+let isConnected = false;
+let currentMode = 'manual';
+let manualTask = 'none';
+let afterTask = 'stay';
+let days = [
+  { id: 'sunday', name: 'Sunday', index: 0 },
+  { id: 'monday', name: 'Monday', index: 1 },
+  { id: 'tuesday', name: 'Tuesday', index: 2 },
+  { id: 'wednesday', name: 'Wednesday', index: 3 },
+  { id: 'thursday', name: 'Thursday', index: 4 },
+  { id: 'friday', name: 'Friday', index: 5 },
+  { id: 'saturday', name: 'Saturday', index: 6 }
+];
+
+/* ----------------- Toast ----------------- */
+function showToast(message, isSuccess = true) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = `toast ${isSuccess ? '' : 'error'} show`;
+  setTimeout(()=>{ toast.classList.remove('show'); }, 3000);
+}
+
+/* ----------------- WebSocket ----------------- */
+function initWebSocket() {
+  try {
+    const host = window.location.hostname;
+    websocket = new WebSocket('ws://' + host + ':81');
+  } catch (e) {
+    console.warn('WebSocket init error', e);
+    return;
+  }
+
+  websocket.onopen = function() {
+    console.log('WebSocket connected');
+    isConnected = true;
+    updateConnectionStatus(true);
+    loadSettings();
+  };
+  websocket.onmessage = function(event) {
+    try {
+      const data = JSON.parse(event.data);
+      handleWebSocketMessage(data);
+    } catch (e) {
+      console.warn('Invalid WS message', event.data);
+    }
+  };
+  websocket.onclose = function() {
+    console.log('WebSocket closed');
+    isConnected = false;
+    updateConnectionStatus(false);
+    setTimeout(initWebSocket, 3000);
+  };
+  websocket.onerror = function(e){
+    console.error('WebSocket error', e);
+    isConnected = false;
+    updateConnectionStatus(false);
+  };
+}
+
+function sendWS(obj) {
+  if (!isConnected || !websocket || websocket.readyState !== WebSocket.OPEN) {
+    console.warn('WebSocket not connected. Cannot send:', obj);
+    return;
+  }
+  websocket.send(JSON.stringify(obj));
+}
+
+/* ----------------- Handle incoming messages ----------------- */
+function handleWebSocketMessage(data) {
+  switch(data.type) {
+    case 'currentTime':
+      updateCurrentTime(data.time, data.day);
+      break;
+    case 'timerSettings':
+      break;
+    case 'timerStatus':
+      updateTimerStatus(data.active, data.message);
+      break;
+    case 'modeStatus':
+      updateModeStatus(data.mode);
+      break;
+    case 'waterLevel':
+      updateWaterLevelDisplay(data.level);
+      break;
+    case 'saveSuccess':
+      showToast('Settings saved successfully!');
+      break;
+    case 'timeSyncSuccess':
+      showToast('Time synchronized successfully!');
+      break;
+    case 'manualSettings':
+      loadManualSettings(data);
+      break;
+    case 'pumpStatus':
+      updatePumpStatus(data);
+      break;
+    case 'loopSettings':
+      loadLoopSettings(data);
+      break;
+    case 'loopStatus':
+      updateLoopStatus(data);
+      break;
+    case 'levelLoopSettings':
+      loadLevelLoopSettings(data);
+      break;
+    default:
+      console.log('Unhandled WS message:', data);
+  }
+}
+
+/* ----------------- Connection & Status UI ----------------- */
+function updateConnectionStatus(connected) {
+  const dot = document.getElementById('connectionStatus');
+  const text = document.getElementById('connectionText');
+  if (connected) {
+    dot.classList.add('connected');
+    text.textContent = 'Connected';
+  } else {
+    dot.classList.remove('connected');
+    text.textContent = 'Disconnected';
+  }
+}
+
+/* ----------------- Time display ----------------- */
+function updateCurrentTime(timeString, dayString) {
+  if (timeString) document.getElementById('currentTime').textContent = timeString;
+  if (dayString) document.getElementById('currentDay').textContent = dayString;
+}
+
+function updateTimeDisplayLocal() {
+  const now = new Date();
+  document.getElementById('currentTime').textContent = now.toLocaleTimeString();
+  document.getElementById('currentDay').textContent = now.toLocaleDateString('en-US', { weekday: 'long' });
+}
+setInterval(updateTimeDisplayLocal, 1000);
+updateTimeDisplayLocal();
+
+/* ----------------- Enhanced Water level display ----------------- */
+function updateWaterLevelDisplay(level) {
+  document.getElementById('waterLevelText').textContent = `Level ${level}`;
+  for (let i=1;i<=5;i++){
+    const bar = document.getElementById('bar'+i);
+    if (i<=level) bar.classList.add('active'); else bar.classList.remove('active');
+  }
+}
+
+/* ----------------- Pump status ----------------- */
+function updatePumpStatus(data) {
+  const pumpStatus = document.getElementById('pumpStatus');
+  const manualToggle = document.getElementById('manualToggle');
+  const globalPumpStatus = document.getElementById('globalPumpStatus');
+
+  if (data && data.status) {
+    pumpStatus.innerHTML = 'RUNNING';
+    pumpStatus.classList.add('on');
+    manualToggle.checked = true;
+    globalPumpStatus.textContent = 'Running';
+  } else {
+    pumpStatus.innerHTML = 'OFF';
+    pumpStatus.classList.remove('on');
+    manualToggle.checked = false;
+    globalPumpStatus.textContent = 'OFF';
+  }
+
+  const taskStatus = document.getElementById('taskStatus');
+  if (data && data.running) {
+    if (data.task === 'timer' && data.remaining !== undefined) {
+      const min = Math.floor(data.remaining/60);
+      const sec = data.remaining % 60;
+      taskStatus.textContent = `Timer running: ${min}:${sec<10?'0':''}${sec} remaining`;
+    } else if (data.task === 'level') {
+      taskStatus.textContent = `Running until level ${data.level}`;
+    } else {
+      taskStatus.textContent = '';
+    }
+  } else {
+    taskStatus.textContent = '';
+  }
+}
+
+/* ----------------- Tab & Mode handling ----------------- */
+function setControlMode(mode) {
+  if (!mode || mode === currentMode) {
+    // still update UI selection
+  }
+  currentMode = mode;
+
+  document.querySelectorAll('.tab-trigger').forEach(btn=>{
+    btn.classList.toggle('active', btn.getAttribute('data-tab')===mode);
+  });
+  document.querySelectorAll('.tab-content').forEach(c=>{
+    c.classList.toggle('active', c.id === mode + 'Content');
+  });
+
+  const descriptions = {
+    'manual': '<strong>Manual Mode:</strong> Full manual control - automated scheduling is disabled',
+    'auto': '<strong>Automatic Mode:</strong> Pump operates according to weekly schedule',
+    'loop': '<strong>Loop Mode:</strong> Periodic water level checks and automatic filling',
+    'by_level_loop': '<strong>By Level Loop:</strong> Automatic control using bottom and target water levels'
+  };
+  document.getElementById('modeDescription').innerHTML = `<div>${descriptions[mode]||''}</div>`;
+
+  if (isConnected) {
+    sendWS({ type: 'setMode', mode: mode });
+  }
+  showToast(`Switched to ${mode} mode`);
+}
+
+/* ----------------- Manual task controls ----------------- */
+function setManualTask(task) {
+  manualTask = task;
+  document.querySelectorAll('[data-task]').forEach(btn=>btn.classList.toggle('active', btn.getAttribute('data-task')===task));
+  document.getElementById('timerConfig').style.display = (task==='timer') ? 'block' : 'none';
+  document.getElementById('levelConfig').style.display = (task==='level') ? 'block' : 'none';
+}
+
+function setAfterTask(action) {
+  afterTask = action;
+  document.querySelectorAll('[data-after]').forEach(btn=>btn.classList.toggle('active', btn.getAttribute('data-after')===action));
+}
+
+function updateManualLevelValue(value) {
+  document.getElementById('manualLevelValue').textContent = `Level ${value}`;
+}
+
+function updateBottomLevelValue(value) {
+  document.getElementById('bottomLevelValue').textContent = `Level ${value}`;
+}
+
+function updateTargetLevelValue(value) {
+  document.getElementById('targetLevelValue').textContent = `Level ${value}`;
+}
+
+function updateLoopLevelValue(value) {
+  document.getElementById('loopLevelValue').textContent = `Level ${value}`;
+}
+
+function togglePump() {
+  const manualToggle = document.getElementById('manualToggle');
+  const newStatus = manualToggle.checked;
+  
+  if (!isConnected) {
+    applyManualToggleState(newStatus);
+    showToast(newStatus ? 'Pump turned ON (local)' : 'Pump turned OFF (local)');
+    return;
+  }
+  sendWS({ type: 'togglePump' });
+}
+
+function applyManualToggleState(stateOn) {
+  const pumpStatus = document.getElementById('pumpStatus');
+  const globalPumpStatus = document.getElementById('globalPumpStatus');
+  if (stateOn) {
+    pumpStatus.textContent = 'RUNNING';
+    pumpStatus.classList.add('on');
+    globalPumpStatus.textContent = 'Running';
+  } else {
+    pumpStatus.textContent = 'OFF';
+    pumpStatus.classList.remove('on');
+    globalPumpStatus.textContent = 'OFF';
+  }
+}
+
+function saveManualSettings() {
+  if (!isConnected) {
+    showToast('WebSocket not connected — cannot send manual settings to device', false);
+    return;
+  }
+  let duration = 0;
+  if (manualTask === 'timer') {
+    const hours = parseInt(document.getElementById('manualTimerHours').value) || 0;
+    const minutes = parseInt(document.getElementById('manualTimerMinutes').value) || 0;
+    duration = hours * 60 + minutes;
+    if (duration <= 0) {
+      showToast('Timer duration must be greater than 0', false);
+      return;
+    }
+  }
+  const level = parseInt(document.getElementById('manualTargetLevel').value) || 3;
+  const payload = {
+    type: 'setManualSettings',
+    task: manualTask,
+    duration: duration,
+    level: level,
+    afterTask: afterTask
+  };
+  sendWS(payload);
+  showToast('Manual settings sent');
+}
+
+/* ----------------- Level Loop settings ----------------- */
+function saveLevelLoopSettings() {
+  if (!isConnected) {
+    showToast('WebSocket not connected — cannot send level loop settings', false);
+    return;
+  }
+  const bottom = parseInt(document.getElementById('levelLoopBottom').value);
+  const target = parseInt(document.getElementById('levelLoopTarget').value);
+  if (bottom > target) {
+    showToast('Bottom level should be <= Target level', false);
+    return;
+  }
+  sendWS({ type: 'setLevelLoopSettings', bottom: bottom, target: target });
+  showToast('By Level Loop settings sent');
+}
+
+/* ----------------- Loop (frequency) settings ----------------- */
+function saveLoopSettings() {
+  if (!isConnected) {
+    showToast('WebSocket not connected — cannot send loop settings', false);
+    return;
+  }
+  const hours = parseInt(document.getElementById('loopFreqHours').value) || 0;
+  const minutes = parseInt(document.getElementById('loopFreqMinutes').value) || 0;
+  const frequency = hours * 60 + minutes;
+  const level = parseInt(document.getElementById('loopTargetLevel').value) || 3;
+  sendWS({ type: 'setLoopSettings', frequency: frequency, level: level });
+  showToast('Loop settings sent');
+}
+
+/* ----------------- Enhanced Period Selection ----------------- */
+function togglePeriod(dayId, period) {
+  const morningBtn = document.getElementById(`${dayId}-morning-btn`);
+  const eveningBtn = document.getElementById(`${dayId}-evening-btn`);
+  const bothBtn = document.getElementById(`${dayId}-both-btn`);
+  const morningConfig = document.getElementById(`${dayId}-morning-config`);
+  const eveningConfig = document.getElementById(`${dayId}-evening-config`);
+  const periodsContainer = document.getElementById(`${dayId}-periods-container`);
+
+  // Reset all buttons
+  morningBtn.classList.remove('active');
+  eveningBtn.classList.remove('active');
+  bothBtn.classList.remove('active');
+
+  if (period === 'morning') {
+    morningBtn.classList.add('active');
+    morningConfig.style.display = 'block';
+    eveningConfig.style.display = 'none';
+    periodsContainer.classList.add('single');
+  } else if (period === 'evening') {
+    eveningBtn.classList.add('active');
+    morningConfig.style.display = 'none';
+    eveningConfig.style.display = 'block';
+    periodsContainer.classList.add('single');
+  } else if (period === 'both') {
+    bothBtn.classList.add('active');
+    morningConfig.style.display = 'block';
+    eveningConfig.style.display = 'block';
+    periodsContainer.classList.remove('single');
+  }
+}
+
+/* ----------------- Auto schedule UI generation & save ----------------- */
+function initAutoControls() {
+  const container = document.getElementById('autoControls');
+  container.innerHTML = '';
+  days.forEach(day=>{
+    const card = document.createElement('div');
+    card.className = 'day-card';
+    card.id = `day-${day.id}`;
+    card.innerHTML = `
+      <div class="day-header">
+        <div class="day-name">${day.name}</div>
+      </div>
+      
+      <div class="period-toggle-container">
+        <div style="font-weight:600;color:var(--primary)">Schedule Period:</div>
+        <div class="toggle-buttons">
+          <button class="period-btn active" id="${day.id}-morning-btn" onclick="togglePeriod('${day.id}', 'morning')">Morning</button>
+          <button class="period-btn" id="${day.id}-evening-btn" onclick="togglePeriod('${day.id}', 'evening')">Evening</button>
+          <button class="period-btn" id="${day.id}-both-btn" onclick="togglePeriod('${day.id}', 'both')">Both</button>
+        </div>
+      </div>
+
+      <div id="${day.id}-periods-container" class="periods-container single">
+        <div id="${day.id}-morning-config" class="period-config">
+          <div style="display:grid;gap:1rem">
+            <div class="form-group">
+              <label class="form-label">🌅 Morning Start Time</label>
+              <input type="time" id="${day.id}-morning-start" value="06:00">
+            </div>
+            
+            <div style="display:flex;gap:1rem;align-items:center;margin:.75rem 0">
+              <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                <input type="radio" name="${day.id}-morning-mode" value="level" checked onchange="updatePeriodModeConfig('${day.id}','morning')"> 
+                <span style="font-weight:600">Target Level</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                <input type="radio" name="${day.id}-morning-mode" value="timer" onchange="updatePeriodModeConfig('${day.id}','morning')"> 
+                <span style="font-weight:600">Timer Duration</span>
+              </label>
+            </div>
+            
+            <div id="${day.id}-morning-level-config">
+              <label class="form-label">Target Water Level</label>
+              <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+                <input type="range" id="${day.id}-morning-water-level" min="1" max="5" value="3" onchange="updateWaterLevelValue('${day.id}','morning',this.value)">
+                <div id="${day.id}-morning-water-value" class="slider-value">Level 3</div>
+              </div>
+            </div>
+            
+            <div id="${day.id}-morning-timer-config" style="display:none">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+                <div class="form-group">
+                  <label class="form-label">Hours</label>
+                  <input type="number" id="${day.id}-morning-hours" min="0" max="23" value="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Minutes</label>
+                  <input type="number" id="${day.id}-morning-minutes" min="0" max="59" value="30">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="${day.id}-evening-config" class="period-config" style="display:none">
+          <div style="display:grid;gap:1rem">
+            <div class="form-group">
+              <label class="form-label">🌇 Evening Start Time</label>
+              <input type="time" id="${day.id}-evening-start" value="18:00">
+            </div>
+            
+            <div style="display:flex;gap:1rem;align-items:center;margin:.75rem 0">
+              <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                <input type="radio" name="${day.id}-evening-mode" value="level" checked onchange="updatePeriodModeConfig('${day.id}','evening')"> 
+                <span style="font-weight:600">Target Level</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                <input type="radio" name="${day.id}-evening-mode" value="timer" onchange="updatePeriodModeConfig('${day.id}','evening')"> 
+                <span style="font-weight:600">Timer Duration</span>
+              </label>
+            </div>
+            
+            <div id="${day.id}-evening-level-config">
+              <label class="form-label">Target Water Level</label>
+              <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+                <input type="range" id="${day.id}-evening-water-level" min="1" max="5" value="3" onchange="updateWaterLevelValue('${day.id}','evening',this.value)">
+                <div id="${day.id}-evening-water-value" class="slider-value">Level 3</div>
+              </div>
+            </div>
+            
+            <div id="${day.id}-evening-timer-config" style="display:none">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+                <div class="form-group">
+                  <label class="form-label">Hours</label>
+                  <input type="number" id="${day.id}-evening-hours" min="0" max="23" value="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Minutes</label>
+                  <input type="number" id="${day.id}-evening-minutes" min="0" max="59" value="30">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+/* helpers for schedule UI */
+function updateWaterLevelValue(dayId, period, value) {
+  const el = document.getElementById(`${dayId}-${period}-water-value`);
+  if (el) el.textContent = `Level ${value}`;
+}
+
+function updatePeriodModeConfig(dayId, period) {
+  const mode = document.querySelector(`input[name="${dayId}-${period}-mode"]:checked`).value;
+  document.getElementById(`${dayId}-${period}-level-config`).style.display = (mode==='level') ? 'block':'none';
+  document.getElementById(`${dayId}-${period}-timer-config`).style.display = (mode==='timer') ? 'block':'none';
+}
+
+function saveAllSettings() {
+  if (!isConnected) {
+    showToast('WebSocket not connected — cannot send schedule', false);
+    return;
+  }
+  
+  const payload = { type: 'saveSettings', days: [] };
+  days.forEach(day=>{
+    const morningActive = document.getElementById(`${day.id}-morning-btn`).classList.contains('active');
+    const eveningActive = document.getElementById(`${day.id}-evening-btn`).classList.contains('active');
+    const bothActive = document.getElementById(`${day.id}-both-btn`).classList.contains('active');
+    
+    const morningEnabled = morningActive || bothActive;
+    const eveningEnabled = eveningActive || bothActive;
+    
+    const morningMode = document.querySelector(`input[name="${day.id}-morning-mode"]:checked`).value;
+    const eveningMode = document.querySelector(`input[name="${day.id}-evening-mode"]:checked`).value;
+    const mStart = document.getElementById(`${day.id}-morning-start`).value;
+    const eStart = document.getElementById(`${day.id}-evening-start`).value;
+    
+    const dayObj = {
+      day: day.index,
+      morning: { 
+        enabled: morningEnabled, 
+        start: mStart, 
+        mode: morningMode 
+      },
+      evening: { 
+        enabled: eveningEnabled, 
+        start: eStart, 
+        mode: eveningMode 
+      }
+    };
+    
+    if (morningMode === 'level') {
+      dayObj.morning.target = parseInt(document.getElementById(`${day.id}-morning-water-level`).value) || 3;
+    } else {
+      dayObj.morning.duration = (parseInt(document.getElementById(`${day.id}-morning-hours`).value)||0)*60 + (parseInt(document.getElementById(`${day.id}-morning-minutes`).value)||0);
+    }
+    
+    if (eveningMode === 'level') {
+      dayObj.evening.target = parseInt(document.getElementById(`${day.id}-evening-water-level`).value) || 3;
+    } else {
+      dayObj.evening.duration = (parseInt(document.getElementById(`${day.id}-evening-hours`).value)||0)*60 + (parseInt(document.getElementById(`${day.id}-evening-minutes`).value)||0);
+    }
+    
+    payload.days.push(dayObj);
+  });
+  sendWS(payload);
+  showToast('Schedule sent');
+}
+
+function syncTimeAndRTC() {
+  if (!isConnected) {
+    showToast('WebSocket not connected — cannot sync time', false);
+    return;
+  }
+  const now = new Date();
+  const timeData = {
+    type: 'syncTime',
+    year: now.getFullYear(),
+    month: now.getMonth()+1,
+    day: now.getDate(),
+    hour: now.getHours(),
+    minute: now.getMinutes(),
+    second: now.getSeconds()
+  };
+  sendWS(timeData);
+  showToast('Time sync request sent');
+}
+
+function loadSettings() {
+  if (!isConnected) return;
+  sendWS({ type: 'loadSettings' });
+}
+
+function loadManualSettings(data) {
+  setManualTask(data.task || 'none');
+  if (data.task === 'timer') {
+    document.getElementById('manualTimerHours').value = Math.floor((data.duration||0)/60);
+    document.getElementById('manualTimerMinutes').value = (data.duration||0)%60;
+  }
+  document.getElementById('manualTargetLevel').value = data.level || 3;
+  updateManualLevelValue(data.level || 3);
+  setAfterTask(data.afterTask || 'stay');
+}
+
+function loadLoopSettings(data) {
+  if (!data) return;
+  if (data.frequency !== undefined) {
+    const hrs = Math.floor(data.frequency/60);
+    const mins = data.frequency % 60;
+    document.getElementById('loopFreqHours').value = hrs;
+    document.getElementById('loopFreqMinutes').value = mins;
+  }
+  if (data.level !== undefined) {
+    document.getElementById('loopTargetLevel').value = data.level;
+    updateLoopLevelValue(data.level);
+  }
+}
+
+function loadLevelLoopSettings(data) {
+  if (!data) return;
+  if (data.bottom !== undefined) {
+    document.getElementById('levelLoopBottom').value = data.bottom;
+    updateBottomLevelValue(data.bottom);
+  }
+  if (data.target !== undefined) {
+    document.getElementById('levelLoopTarget').value = data.target;
+    updateTargetLevelValue(data.target);
+  }
+}
+
+function updateModeStatus(mode) {
+  if (mode && mode !== currentMode) {
+    setControlMode(mode);
+  }
+}
+
+function updateTimerStatus(active, message) {
+  const el = document.getElementById('timerStatus');
+  el.textContent = message || 'Timer is currently inactive';
+  if (active) {
+    el.style.background = 'rgba(220,255,220,0.8)';
+  } else {
+    el.style.background = 'rgba(255,243,205,0.8)';
+  }
+}
+
+function updateLoopStatus(data) {
+  if (!data) return;
+  if (data.lastEnd) document.getElementById('lastEndTime').textContent = data.lastEnd;
+  if (data.nextCheck) document.getElementById('nextCheckTime').textContent = data.nextCheck;
+}
+
+/* ----------------- Initialization ----------------- */
+window.addEventListener('load', ()=>{
+  initAutoControls();
+
+  document.querySelectorAll('[data-task]').forEach(btn=>{
+    btn.addEventListener('click', ()=>setManualTask(btn.getAttribute('data-task')));
+  });
+  document.querySelectorAll('[data-after]').forEach(btn=>{
+    btn.addEventListener('click', ()=>setAfterTask(btn.getAttribute('data-after')));
+  });
+  
+  document.getElementById('manualTargetLevel').addEventListener('input', e=>updateManualLevelValue(e.target.value));
+  document.getElementById('levelLoopBottom').addEventListener('input', e=>updateBottomLevelValue(e.target.value));
+  document.getElementById('levelLoopTarget').addEventListener('input', e=>updateTargetLevelValue(e.target.value));
+  document.getElementById('loopTargetLevel').addEventListener('input', e=>updateLoopLevelValue(e.target.value));
+
+  document.querySelectorAll('.tab-trigger').forEach(btn=>{
+    btn.addEventListener('click', ()=>setControlMode(btn.getAttribute('data-tab')));
+  });
+
+  updateWaterLevelDisplay(2);
+  initWebSocket();
+});
+
+window._debug = {
+  setControlMode,
+  sendWS,
+  initWebSocket,
+  updateWaterLevelDisplay
+};
+</script>
+</body>
+</html>
